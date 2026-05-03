@@ -12,40 +12,90 @@
         android:text="安装器Demo"
         android:textSize="20sp" />
 
-    <Button
-        android:id="@+id/btn_request_preapproval"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
-        android:text="请求 Pre-approval" />
+        android:gravity="top"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
 
-    <Button
-        android:id="@+id/btn_commit_install"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="提交安装 Session" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-    <Button
-        android:id="@+id/btn_install_archive_seed"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="16dp"
-        android:text="安装归档测试应用" />
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:gravity="center"
+                android:text="Pre-approval"
+                android:textSize="13sp" />
 
-    <Button
-        android:id="@+id/btn_request_archive"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="请求归档 requestArchive" />
+            <Button
+                android:id="@+id/btn_request_preapproval"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="请求 Pre-approval" />
 
-    <Button
-        android:id="@+id/btn_request_unarchive"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
-        android:text="请求解归档 requestUnarchive" />
+            <Button
+                android:id="@+id/btn_commit_install"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="提交安装 Session" />
+        </LinearLayout>
+
+        <Space
+            android:layout_width="6dp"
+            android:layout_height="1dp" />
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="#33000000" />
+
+        <Space
+            android:layout_width="6dp"
+            android:layout_height="1dp" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:gravity="center"
+                android:text="应用归档"
+                android:textSize="13sp" />
+
+            <Button
+                android:id="@+id/btn_install_archive_seed"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="安装归档测试应用" />
+
+            <Button
+                android:id="@+id/btn_request_archive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="请求归档 requestArchive" />
+
+            <Button
+                android:id="@+id/btn_request_unarchive"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="请求解归档 requestUnarchive" />
+        </LinearLayout>
+    </LinearLayout>
 
     <ScrollView
         android:layout_width="match_parent"

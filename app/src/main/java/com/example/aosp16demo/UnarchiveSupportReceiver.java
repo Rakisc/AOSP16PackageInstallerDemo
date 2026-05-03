@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInstaller;
 import android.os.Build;
+import android.os.SystemClock;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -25,7 +26,19 @@ public class UnarchiveSupportReceiver extends BroadcastReceiver {
     private static final int FLOW_IN_PROGRESS = 1;
     private static final int FLOW_DONE = 2;
     private static final int FLOW_FAILED = 3;
-    private static final Map<Integer, Integer> UNARCHIVE_FLOW_STATE = new ConcurrentHashMap<>();
+    private static final long DUPLICATE_IN_PROGRESS_WINDOW_MS = 45_000L;
+    private static final long DUPLICATE_DONE_WINDOW_MS = 5_000L;
+    private static final Map<Integer, FlowState> UNARCHIVE_FLOW_STATE = new ConcurrentHashMap<>();
+
+    private static final class FlowState {
+        final int state;
+        final long updatedAtMs;
+
+        FlowState(int state, long updatedAtMs) {
+            this.state = state;
+            this.updatedAtMs = updatedAtMs;
+        }
+    }
 
     @Override
     public void onReceive(Context context, Intent intent) {
@@ -47,16 +60,27 @@ public class UnarchiveSupportReceiver extends BroadcastReceiver {
         Log.i(TAG, "Received ACTION_UNARCHIVE_PACKAGE, id=" + unarchiveId + ", package=" + packageName);
         Toast.makeText(context, "Received unarchive request: " + packageName, Toast.LENGTH_SHORT).show();
         if (unarchiveId >= 0) {
-            Integer oldState = UNARCHIVE_FLOW_STATE.get(unarchiveId);
-            if (oldState != null && oldState != FLOW_FAILED) {
-                String stateLabel = oldState == FLOW_IN_PROGRESS ? "in_progress" : "done";
-                Log.i(TAG, "Unarchive ID already handled, skip duplicate: " + unarchiveId
-                        + ", state=" + stateLabel);
-                Toast.makeText(context, "Duplicate unarchive ignored, state=" + stateLabel,
-                        Toast.LENGTH_SHORT).show();
-                return;
+            long now = SystemClock.elapsedRealtime();
+            FlowState oldState = UNARCHIVE_FLOW_STATE.get(unarchiveId);
+            if (oldState != null) {
+                if (oldState.state == FLOW_IN_PROGRESS
+                        && (now - oldState.updatedAtMs) < DUPLICATE_IN_PROGRESS_WINDOW_MS) {
+                    Log.i(TAG, "Unarchive ID already handled, skip duplicate: " + unarchiveId
+                            + ", state=in_progress");
+                    Toast.makeText(context, "Duplicate unarchive ignored, state=in_progress",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
+                if (oldState.state == FLOW_DONE
+                        && (now - oldState.updatedAtMs) < DUPLICATE_DONE_WINDOW_MS) {
+                    Log.i(TAG, "Unarchive ID already handled, skip duplicate: " + unarchiveId
+                            + ", state=done");
+                    Toast.makeText(context, "Duplicate unarchive ignored, state=done",
+                            Toast.LENGTH_SHORT).show();
+                    return;
+                }
             }
-            UNARCHIVE_FLOW_STATE.put(unarchiveId, FLOW_IN_PROGRESS);
+            UNARCHIVE_FLOW_STATE.put(unarchiveId, new FlowState(FLOW_IN_PROGRESS, now));
         }
 
         try {
@@ -80,7 +104,8 @@ public class UnarchiveSupportReceiver extends BroadcastReceiver {
             Log.e(TAG, "reportUnarchivalStatus failed, id=" + unarchiveId, e);
             Toast.makeText(context, "Failed to report unarchive status: " + e.getMessage(), Toast.LENGTH_SHORT).show();
             if (unarchiveId >= 0) {
-                UNARCHIVE_FLOW_STATE.put(unarchiveId, FLOW_FAILED);
+                UNARCHIVE_FLOW_STATE.put(
+                        unarchiveId, new FlowState(FLOW_FAILED, SystemClock.elapsedRealtime()));
             }
         }
     }
@@ -115,16 +140,18 @@ public class UnarchiveSupportReceiver extends BroadcastReceiver {
                             .setAction(ACTION_INSTALL_STATUS_FROM_UNARCHIVE)
                             .setPackage(context.getPackageName())
                             .putExtra(EXTRA_LOCAL_UNARCHIVE_ID, unarchiveId);
-                    int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE;
+                    int flags = PendingIntent.FLAG_CANCEL_CURRENT | PendingIntent.FLAG_MUTABLE;
+                    int requestCode = (unarchiveId >= 0) ? unarchiveId : 1001;
                     PendingIntent callbackPendingIntent = PendingIntent.getBroadcast(
-                            context, 1001, callbackIntent, flags);
+                            context, requestCode, callbackIntent, flags);
                     session.commit(callbackPendingIntent.getIntentSender());
                     Log.i(TAG, "Unarchive reinstall commit sent");
                 }
             } catch (Exception e) {
                 Log.e(TAG, "Unarchive reinstall failed", e);
                 if (unarchiveId >= 0) {
-                    UNARCHIVE_FLOW_STATE.put(unarchiveId, FLOW_FAILED);
+                    UNARCHIVE_FLOW_STATE.put(
+                            unarchiveId, new FlowState(FLOW_FAILED, SystemClock.elapsedRealtime()));
                 }
             } finally {
                 pendingResult.finish();
@@ -156,7 +183,8 @@ public class UnarchiveSupportReceiver extends BroadcastReceiver {
         if (status == PackageInstaller.STATUS_SUCCESS) {
             Toast.makeText(context, "Unarchive reinstall success: " + TARGET_PACKAGE_NAME, Toast.LENGTH_SHORT).show();
             if (unarchiveId >= 0) {
-                UNARCHIVE_FLOW_STATE.put(unarchiveId, FLOW_DONE);
+                UNARCHIVE_FLOW_STATE.put(
+                        unarchiveId, new FlowState(FLOW_DONE, SystemClock.elapsedRealtime()));
             }
             return;
         }
@@ -164,7 +192,8 @@ public class UnarchiveSupportReceiver extends BroadcastReceiver {
         Toast.makeText(context, "Unarchive reinstall failed, status=" + status + ", msg=" + message,
                 Toast.LENGTH_SHORT).show();
         if (unarchiveId >= 0) {
-            UNARCHIVE_FLOW_STATE.put(unarchiveId, FLOW_FAILED);
+            UNARCHIVE_FLOW_STATE.put(
+                    unarchiveId, new FlowState(FLOW_FAILED, SystemClock.elapsedRealtime()));
         }
     }
 }
